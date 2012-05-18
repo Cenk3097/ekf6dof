@@ -1,9 +1,31 @@
 from pylab import *
 from quaternion import Quat
 
-Nt = 80
-tt = mgrid[0.0:Nt]
-dt = 10.0
+
+
+def transition(q, dt):
+    M = identity(7)
+    M[:4,4:] = dt * array([
+        [-q[1], -q[2], -q[3]],
+        [ q[0], -q[3],  q[2]],
+        [ q[3],  q[0], -q[1]],
+        [-q[2],  q[1],  q[0]]
+        ])
+    return M
+    
+def accel(q, dt):
+    M = zeros([7, 3])
+    M[:4,:] = dt**2/2 * array([
+        [-q[1], -q[2], -q[3]],
+        [ q[0], -q[3],  q[2]],
+        [ q[3],  q[0], -q[1]],
+        [-q[2],  q[1],  q[0]]
+        ])
+    M[4:,:] = dt * identity(3)
+    return M
+
+Nt = 1000
+dt = 0.5
 
 pp = array([
     [1.0, 0, 0],
@@ -14,42 +36,23 @@ pp = array([
 
 
 xx = empty([Nt, 12])
+qq = empty([Nt, 7])
 
-tinyrot = Quat(4*array([0.001,0.01,-0.0002]))
-q = Quat(0,0,0.0)
+q = array([1.0,0,0,0,0,0,0])
 
 for n in xrange(Nt):
-    t = tt[n] * dt
-    q = tinyrot * q
+    w_ = 0.01 * (rand(3)-0.5)
+    F = transition(q, dt)
+    G = accel(q, dt)
+    q = dot(F, q) + dot(G, w_)
 
-    uu = array([.1*sin(0.6e-3 * 2*pi*t),
-                .01 * sin(1.2e-3 * 2*pi*t),
-                .12*cos(0.1 + 0.6e-3 * 2*pi*t)])
+    q[:4] = q[:4]/norm(q[:4])
 
-    ww = 0.1 * random(12)
-    
-    xx[n] = (dot(pp, q.rot())+uu).ravel() + ww
+    xx[n] = (dot(pp, Quat(q[:4]).rot())).ravel()
+    qq[n] = q
 
+    print n, q
 
 
-    print t, q
-
-ion()
-
-subplot(2,2,3)
-for c in [0,3,6,9]:
-    plot(xx[0,0+c], xx[0,2+c],'ro')
-    plot(xx[:,0+c], xx[:,2+c], 'b-+')
-axis('equal')
-
-subplot(2,2,1)
-for c in [0,3,6,9]:
-    plot(xx[0,0+c], xx[0,1+c],'ro')
-    plot(xx[:,0+c], xx[:,1+c], 'b-+')
-axis('equal')
-
-subplot(2,2,4)
-for c in [0,3,6,9]:
-    plot(xx[0,2+c], xx[0,1+c],'ro')
-    plot(xx[:,2+c], xx[:,1+c], 'b-+')
-axis('equal')
+savetxt('sim_data.txt', xx)
+savetxt('params.txt', qq)
