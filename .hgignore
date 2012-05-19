@@ -1,6 +1,7 @@
 ./*~
 ./*png
 ./*pyc
+./*flv
 run_test
 kalman_test
 data3.txt
