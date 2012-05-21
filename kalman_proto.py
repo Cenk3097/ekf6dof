@@ -64,14 +64,14 @@ class Kalman6DOF:
     def __init__(self):
 
         ## Point coordinates in the body reference frame
-        # self.pts = array([
-        #     [1.0, 0, 0],
-        #     [-.6,.1,.3],
-        #     [-.4,.2,-.1]])
+        self.pts = array([
+            [1.0, 0, 0],
+            [-.6,.1,.3],
+            [-.4,.2,-.1]])
 
-        self.pts = array([[-50.37333333,  66.99333333,  20.6       ],
-                          [ 69.62666667, -17.00666667, -24.4       ],
-                          [-11.37333333, -40.00666667,  -2.4       ]])
+        # self.pts = array([[-50.37333333,  66.99333333,  20.6       ],
+        #                   [ 69.62666667, -17.00666667, -24.4       ],
+        #                   [-11.37333333, -40.00666667,  -2.4       ]])
 
 
 
@@ -100,11 +100,14 @@ class Kalman6DOF:
 
         ## Variance of the acceleration. (Must be properly measured
         ## and given as a parameter in the initialization.)
-        self.accel_var = 1.0
+        self.accel_var = 10.0
 
         ## Covariance matrix from measurements. (Also has to be better
         ## determined and given as a parameter at initialization.)
-        self.R = identity(9) * 3.0
+        self.R = identity(9) * 10.0
+        self.R[2,2] = 1e16
+        self.R[5,5] = 1e16
+        self.R[8,8] = 1e16
 
     def predict_state(self, dt):
         ## Set the transition matrix from the current orientation
@@ -180,7 +183,7 @@ class Kalman6DOF:
 
 if __name__ == '__main__':
 
-    xx = loadtxt(sys.argv[1])
+    xx = loadtxt(sys.argv[1])[:,:9]
 
     for n in range(1,xx.shape[0]):
         xx[n] = assoc(xx[n-1], xx[n])
@@ -191,15 +194,18 @@ if __name__ == '__main__':
     kalman = Kalman6DOF()
 
 
-    kalman.state[0:3] = array([336.37333333,   227.00666667,  2801.4])
-    kalman.state[6] = 1.0
-    #kalman.state[10] = 1.0
-    kalman.Cstate = 10.0 * identity(13)
+    kalman.state[6] = 1.0 ## "0" Quaternion
 
-    out = zeros((xx.shape[0], 7))
+    kalman.state[0:3] = array([0.0,0.0,0.0]) ## simulation
+    # kalman.state[0:3] = array([336.37333333,   227.00666667,  2801.4]) ## Real data tree3
+
+    kalman.Cstate = 10.0 * identity(13) ## Initial state covariance
+
+    xout = zeros((xx.shape[0], 13))
+    zout = zeros((xx.shape[0], 9))
 
     dt = .042
-    for n in range(10):#range(xx.shape[0]):
+    for n in range(xx.shape[0]):
         print 70*'-'
         kalman.predict_state(dt)
         print 'pred st: ', kalman.state
@@ -209,5 +215,10 @@ if __name__ == '__main__':
         print 'measured:', xx[n]
         print 'updt st:', kalman.state
 
-        out[n,0:3] = kalman.state[0:3]
-        out[n,3:7] = kalman.state[6:10]
+        xout[n] = kalman.state
+        zout[n] = kalman.z_hat
+
+
+    ion()
+    plot(xx, 'b+')
+    plot(zout, 'r-')
