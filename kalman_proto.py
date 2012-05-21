@@ -1,7 +1,12 @@
 import sys
 from pylab import *
 
-
+arrj = array([[0,1,2],
+              [0,2,1],
+              [1,0,2],
+              [1,2,0],
+              [2,0,1],
+              [2,1,0]])
 def assoc(aa, bb):
     a = aa.reshape(-1,3)
     b = bb.reshape(-1,3)
@@ -14,12 +19,9 @@ def matrix_from_quaternion(q):
                       [(2*b*c+2*a*d),     (a*a-b*b+c*c-d*d), (2*c*d-2*a*b)     ],
                       [(2*b*d-2*a*c),     (2*c*d+2*a*b),     (a*a-b*b-c*c+d*d)] ] )
 
-def matrix_from_quaternion_derivatives(q):
-
-
-
 
 def transition_matrix(M, q, dt):
+    M[0:3,3:6] = dt * identity(3)
     M[6:10,10:] = dt * array([
         [-q[1], -q[2], -q[3]],
         [ q[0], -q[3],  q[2]],
@@ -47,15 +49,20 @@ def measurement_matrix(M, ):
         ])
 
 
-def class Kalman6DOF:
+class Kalman6DOF:
     def __init__(self):
 
         ## Point coordinates in the body reference frame
-        self.pts = array([
-            [1.0, 0, 0],
-            [-.6,.1,.3],
-            [-.4,.2,-.1]
-            ])
+        # self.pts = array([
+        #     [1.0, 0, 0],
+        #     [-.6,.1,.3],
+        #     [-.4,.2,-.1]])
+
+        self.pts = array([[-50.37333333,  66.99333333,  20.6       ],
+                          [ 69.62666667, -17.00666667, -24.4       ],
+                          [-11.37333333, -40.00666667,  -2.4       ]])
+
+
 
         ## The system state, 3d position, 3d orientation (quaternion)
         ## + 3d velocity and angular velocity.
@@ -63,7 +70,7 @@ def class Kalman6DOF:
         self.Cstate = zeros((13,13)) ## State covariance matrix
 
         ## Vector to store the predicted observation values, calculated for a given state.
-        self.y_hat = zeros(9)
+        self.z_hat = zeros(9)
 
         ## The transition function jacobian matrix, F, and the
         ## obesrvation matrix H calculated at any given state. The
@@ -71,16 +78,24 @@ def class Kalman6DOF:
         ## observation depends only in the position and orientation,
         ## not the velocities.
         self.Mtrans = identity(13)
-        self.Mobser = zeros([9,7])
+        self.Mobser = zeros([9,13])
 
         ## The transition jacobian regarding the acceleration. Used to
         ## compute the transition covariance.
         self.Maccel = zeros([13, 6])
 
+        ## Variance of the acceleration. (Must be properly measured
+        ## and given as a parameter in the initialization.)
+        self.accel_var = 1.0
 
-    def make_transition(self, dt):
+        ## Covariance matrix from measurements. (Also has to be better
+        ## determined and given as a parameter at initialization.)
+        self.R = identity(9) * 3.0
+
+    def predict_state(self, dt):
         ## Set the transition matrix from the current orientation
         transition_matrix(self.Mtrans, self.state[6:10], dt)
+        acceleration_matrix(self.Maccel, self.state[6:10], dt)
 
         ## Calculate the new state using the transition matrix
         self.state = dot(self.Mtrans, self.state)
@@ -90,13 +105,13 @@ def class Kalman6DOF:
         ########################################################################
         ## Update covariance of state estimate
         ##
-        ## Calculate covariance fm assumed uniform random acceleration.
-        Q = 
-        
-        self.Cstate = dot(dot(self.Mtrans,self.Cstate), self.Mtrans.T) + Q
+        ## Calculate covariance to be added from an assumed uniform
+        ## random acceleration.
+        QQt = self.accel_var * dot(self.Maccel,self.Maccel.T)
+        self.Cstate = dot(dot(self.Mtrans,self.Cstate), self.Mtrans.T) + QQt
 
 
-    def observation_prediction(self):
+    def predict_observations(self):
         ## Current estimated position and orientation
         x = self.state[0:3]
         q = self.state[6:10]
@@ -104,9 +119,9 @@ def class Kalman6DOF:
         R = matrix_from_quaternion(q)
 
         ## Predicted observation values
-        self.y_hat[0:3] = self.x + dot(self.pts[0], R)
-        self.y_hat[3:6] = self.x + dot(self.pts[1], R)
-        self.y_hat[6:9] = self.x + dot(self.pts[2], R)
+        self.z_hat[0:3] = self.state[0:3] + dot(self.pts[0], R)
+        self.z_hat[3:6] = self.state[0:3] + dot(self.pts[1], R)
+        self.z_hat[6:9] = self.state[0:3] + dot(self.pts[2], R)
         
         ## Assemble observation jacobian matrix, H
         ## Derivatives on centroid position
@@ -125,8 +140,23 @@ def class Kalman6DOF:
                         [-c, b, a],
                         [ d, a,-b],
                         [-a, d,-c],
-                        [ b, c, d]])]
-        self.Mobser[0:3,:] = dot(self.pts,drdq.T).reshape(9,4)
+                        [ b, c, d]])
+        self.Mobser[:,6:10] = dot(self.pts, drdq.T).reshape(9,4)
+
+    def update_from_observations(self, z):
+        ## Calculate residue from the emasured and predicted observations.
+        residue = z - self.z_hat
+        Cresidue = dot(dot(self.Mobser, self.Mtrans), self.Mobser.T) + self.R
+
+        ## Kalman gain
+        self.K = dot(dot(self.Mtrans, self.Mobser.T), inv(Cresidue))
+
+        ## Incorporate new observations into state estimation.
+        self.state += dot(self.K, residue)
+        self.Cstate += -dot(self.K, self.Mobser)
+
+        ## Re-normalize the quaternion. Controversy ensues again.
+        self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
 
 
 
@@ -140,8 +170,29 @@ if __name__ == '__main__':
 
 
 
+    
+    kalman = Kalman6DOF()
 
 
+    kalman.state[0:3] = array([336.37333333,   227.00666667,  2801.4])
+    kalman.state[3] = 0.1
+    kalman.state[6] = 1.0
+    #kalman.state[10] = 1.0
+    kalman.Cstate = 10.0 * identity(13)
 
+    out = zeros((xx.shape[0], 7))
 
+    #dt = 0.042
+    dt = .1
+    for n in range(10):#range(xx.shape[0]):
+        print 70*'-'
+        kalman.predict_state(dt)
+        print 'pred st: ', kalman.state
+        kalman.predict_observations()
+        print 'pred obs:', kalman.z_hat
+        kalman.update_from_observations(xx[n])
+        print 'measured:', xx[n]
+        print 'updt st:', kalman.state
 
+        out[n,0:3] = kalman.state[0:3]
+        out[n,3:7] = kalman.state[6:10]
