@@ -19,6 +19,17 @@ def matrix_from_quaternion(q):
                       [(2*b*c+2*a*d),     (a*a-b*b+c*c-d*d), (2*c*d-2*a*b)     ],
                       [(2*b*d-2*a*c),     (2*c*d+2*a*b),     (a*a-b*b-c*c+d*d)] ] )
 
+def quaternion_multiplication(a,b):
+    return array([[a[0]*b[0] - a[1]*b[1] - a[2]*b[2]-a[3]*b[3]],
+                  [a[0]*b[1] + a[1]*b[0] - a[2]*b[3]+a[3]*b[2]],
+                  [a[0]*b[2] + a[1]*b[3] + a[2]*b[0]-a[3]*b[1]],
+                  [a[0]*b[3] - a[1]*b[2] + a[2]*b[1]+a[3]*b[0]]])
+
+def quaternion_delta(a,b):
+    return array([[-a[0]*b[1] - a[1]*b[0] + a[2]*b[3] - a[3]*b[2]],
+                  [-a[0]*b[2] - a[1]*b[3] - a[2]*b[0] + a[3]*b[1]],
+                  [-a[0]*b[3] + a[1]*b[2] - a[2]*b[1] - a[3]*b[0]]])
+
 
 def transition_matrix(M, q, dt):
     M[0:3,3:6] = dt * identity(3)
@@ -67,9 +78,12 @@ class Kalman6DOF:
         ## The system state, 3d position, 3d orientation (quaternion)
         ## + 3d velocity and angular velocity.
         self.state = zeros(13)
+        self.previous_state = zeros(13)
         self.Cstate = zeros((13,13)) ## State covariance matrix
 
-        ## Vector to store the predicted observation values, calculated for a given state.
+        ## Vector to store the predicted observation values,
+        ## calculated for a given state. The values are the 9 point
+        ## coordinates followed by the 6 velocoty parameters.
         self.z_hat = zeros(9)
 
         ## The transition function jacobian matrix, F, and the
@@ -97,6 +111,8 @@ class Kalman6DOF:
         transition_matrix(self.Mtrans, self.state[6:10], dt)
         acceleration_matrix(self.Maccel, self.state[6:10], dt)
 
+        ## Store current state
+        self.previous_state[:] = self.state
         ## Calculate the new state using the transition matrix
         self.state = dot(self.Mtrans, self.state)
         ## Re-normalize the quaternion. Controversy ensues...
@@ -141,19 +157,20 @@ class Kalman6DOF:
                         [ d, a,-b],
                         [-a, d,-c],
                         [ b, c, d]])
-        self.Mobser[:,6:10] = dot(self.pts, drdq.T).reshape(9,4)
+        self.Mobser[:9,6:10] = dot(self.pts, drdq.T).reshape(9,4)
 
     def update_from_observations(self, z):
-        ## Calculate residue from the emasured and predicted observations.
+
+        ## Calculate residue from the measured and predicted observations.
         residue = z - self.z_hat
-        Cresidue = dot(dot(self.Mobser, self.Mtrans), self.Mobser.T) + self.R
+        Cresidue = dot(dot(self.Mobser, self.Cstate), self.Mobser.T) + self.R
 
         ## Kalman gain
-        self.K = dot(dot(self.Mtrans, self.Mobser.T), inv(Cresidue))
+        self.K = dot(dot(self.Cstate, self.Mobser.T), inv(Cresidue))
 
         ## Incorporate new observations into state estimation.
         self.state += dot(self.K, residue)
-        self.Cstate += -dot(self.K, self.Mobser)
+        self.Cstate += -dot(dot(self.K, self.Mobser),self.Cstate)
 
         ## Re-normalize the quaternion. Controversy ensues again.
         self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
@@ -175,15 +192,13 @@ if __name__ == '__main__':
 
 
     kalman.state[0:3] = array([336.37333333,   227.00666667,  2801.4])
-    kalman.state[3] = 0.1
     kalman.state[6] = 1.0
     #kalman.state[10] = 1.0
     kalman.Cstate = 10.0 * identity(13)
 
     out = zeros((xx.shape[0], 7))
 
-    #dt = 0.042
-    dt = .1
+    dt = .042
     for n in range(10):#range(xx.shape[0]):
         print 70*'-'
         kalman.predict_state(dt)
