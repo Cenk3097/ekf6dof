@@ -16,7 +16,7 @@ def assoc(aa, bb):
 
 
 
-xx = loadtxt(sys.argv[1])
+xx = loadtxt(sys.argv[1])[:,:9]
 
 for n in range(1,xx.shape[0]):
     xx[n] = assoc(xx[n-1], xx[n])

@@ -53,14 +53,17 @@ class Kalman6DOF:
 
         ## Point coordinates in the body reference frame
 
-        self.pts = array([
-            [1.0,0,0],
-            [0,1.0,0],
-            [-.5,-.5,0.0]
-            ]) ## simulation
+        # self.pts = array([
+        #     [1.0,0,0],
+        #     [0,1.0,0],
+        #     [-.5,-.5,0.0]
+        #     ]) ## simulation
         # self.pts = array([[-50.37333333,  66.99333333,  20.6       ],
         #                   [ 69.62666667, -17.00666667, -24.4       ],
         #                   [-11.37333333, -40.00666667,  -2.4       ]]) ## tree3
+        self.pts = array([[14.74758755,  -9.02537984, -41.20558299 ],
+                          [2.21633152, -3.92949907,  61.57078696   ],
+                          [3.93343197,   0.71211179, -11.49110769  ]]) ## tree_22may
 
 
 
@@ -94,10 +97,10 @@ class Kalman6DOF:
 
         ## Covariance matrix from measurements. (Also has to be better
         ## determined and given as a parameter at initialization.)
-        self.R = identity(9) * 10.0
-        # self.R[2,2] = 1e6
-        # self.R[5,5] = 1e6
-        # self.R[8,8] = 1e6
+        self.R = identity(9) * 1.0
+        self.R[2,2] = 1e6
+        self.R[5,5] = 1e6
+        self.R[8,8] = 1e6
 
 
     def predict_state(self, dt):
@@ -184,10 +187,11 @@ if __name__ == '__main__':
 
     kalman.state[6] = 1.0 ## "0" Quaternion
 
-    kalman.state[0:3] = array([0.0,0.0,0.0]) ## simulation
+    # kalman.state[0:3] = array([0.0,0.0,0.0]) ## simulation
     # kalman.state[0:3] = array([336.37333333,   227.00666667,  2801.4]) ## Real data tree3
+    kalman.state[0:3] = array([  328.07273667,   220.70310667,  1154.43393333]) # tree_22may
 
-    kalman.Cstate = 10.0 * identity(13) ## Initial state covariance
+    kalman.Cstate = 100.0 * identity(13) ## Initial state covariance
 
     xout = zeros((xx.shape[0], 13))
     zout = zeros((xx.shape[0], 12))
