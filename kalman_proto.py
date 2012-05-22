@@ -19,18 +19,6 @@ def matrix_from_quaternion(q):
                       [(2*b*c+2*a*d),     (a*a-b*b+c*c-d*d), (2*c*d-2*a*b)     ],
                       [(2*b*d-2*a*c),     (2*c*d+2*a*b),     (a*a-b*b-c*c+d*d)] ] )
 
-def quaternion_multiplication(a,b):
-    return array([[a[0]*b[0] - a[1]*b[1] - a[2]*b[2]-a[3]*b[3]],
-                  [a[0]*b[1] + a[1]*b[0] - a[2]*b[3]+a[3]*b[2]],
-                  [a[0]*b[2] + a[1]*b[3] + a[2]*b[0]-a[3]*b[1]],
-                  [a[0]*b[3] - a[1]*b[2] + a[2]*b[1]+a[3]*b[0]]])
-
-def quaternion_delta(a,b):
-    return array([[-a[0]*b[1] - a[1]*b[0] + a[2]*b[3] - a[3]*b[2]],
-                  [-a[0]*b[2] - a[1]*b[3] - a[2]*b[0] + a[3]*b[1]],
-                  [-a[0]*b[3] + a[1]*b[2] - a[2]*b[1] - a[3]*b[0]]])
-
-
 def transition_matrix(M, q, dt):
     M[0:3,3:6] = dt * identity(3)
     M[6:10,10:] = dt * array([
@@ -41,9 +29,9 @@ def transition_matrix(M, q, dt):
         ])
 
 def acceleration_matrix(M, q, dt):
-    M[:3,:3] = dt**2/2 * identity(3)
-    M[3:6,3:6] = dt * identity(3)
-    M[6:10,3:] = dt**2/2 * array([
+    M[0:3,0:3] = .5*dt**2 * identity(3)
+    M[3:6,0:3] = dt * identity(3)
+    M[6:10,3:] = .5*dt**2 * array([
         [-q[1], -q[2], -q[3]],
         [ q[0], -q[3],  q[2]],
         [ q[3],  q[0], -q[1]],
@@ -64,14 +52,15 @@ class Kalman6DOF:
     def __init__(self):
 
         ## Point coordinates in the body reference frame
-        self.pts = array([
-            [1.0, 0, 0],
-            [-.6,.1,.3],
-            [-.4,.2,-.1]])
 
+        self.pts = array([
+            [1.0,0,0],
+            [0,1.0,0],
+            [-.5,-.5,0.0]
+            ]) ## simulation
         # self.pts = array([[-50.37333333,  66.99333333,  20.6       ],
         #                   [ 69.62666667, -17.00666667, -24.4       ],
-        #                   [-11.37333333, -40.00666667,  -2.4       ]])
+        #                   [-11.37333333, -40.00666667,  -2.4       ]]) ## tree3
 
 
 
@@ -79,7 +68,8 @@ class Kalman6DOF:
         ## + 3d velocity and angular velocity.
         self.state = zeros(13)
         self.previous_state = zeros(13)
-        self.Cstate = zeros((13,13)) ## State covariance matrix
+        #self.Cstate = zeros((13,13)) ## State covariance matrix
+        self.Cstate = 0.1 * identity(13)
 
         ## Vector to store the predicted observation values,
         ## calculated for a given state. The values are the 9 point
@@ -105,9 +95,10 @@ class Kalman6DOF:
         ## Covariance matrix from measurements. (Also has to be better
         ## determined and given as a parameter at initialization.)
         self.R = identity(9) * 10.0
-        self.R[2,2] = 1e16
-        self.R[5,5] = 1e16
-        self.R[8,8] = 1e16
+        # self.R[2,2] = 1e6
+        # self.R[5,5] = 1e6
+        # self.R[8,8] = 1e6
+
 
     def predict_state(self, dt):
         ## Set the transition matrix from the current orientation
@@ -138,9 +129,9 @@ class Kalman6DOF:
         R = matrix_from_quaternion(q)
 
         ## Predicted observation values
-        self.z_hat[0:3] = self.state[0:3] + dot(self.pts[0], R)
-        self.z_hat[3:6] = self.state[0:3] + dot(self.pts[1], R)
-        self.z_hat[6:9] = self.state[0:3] + dot(self.pts[2], R)
+        self.z_hat[0:3] = self.state[0:3] + dot(self.pts[0], R.T)
+        self.z_hat[3:6] = self.state[0:3] + dot(self.pts[1], R.T)
+        self.z_hat[6:9] = self.state[0:3] + dot(self.pts[2], R.T)
         
         ## Assemble observation jacobian matrix, H
         ## Derivatives on centroid position
@@ -172,8 +163,8 @@ class Kalman6DOF:
         self.K = dot(dot(self.Cstate, self.Mobser.T), inv(Cresidue))
 
         ## Incorporate new observations into state estimation.
-        self.state += dot(self.K, residue)
-        self.Cstate += -dot(dot(self.K, self.Mobser),self.Cstate)
+        self.state = self.state + dot(self.K, residue)
+        self.Cstate = dot(identity(13) - dot(self.K, self.Mobser),self.Cstate)
 
         ## Re-normalize the quaternion. Controversy ensues again.
         self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
@@ -188,11 +179,8 @@ if __name__ == '__main__':
     for n in range(1,xx.shape[0]):
         xx[n] = assoc(xx[n-1], xx[n])
 
-
-
     
     kalman = Kalman6DOF()
-
 
     kalman.state[6] = 1.0 ## "0" Quaternion
 
@@ -202,7 +190,7 @@ if __name__ == '__main__':
     kalman.Cstate = 10.0 * identity(13) ## Initial state covariance
 
     xout = zeros((xx.shape[0], 13))
-    zout = zeros((xx.shape[0], 9))
+    zout = zeros((xx.shape[0], 12))
 
     dt = .042
     for n in range(xx.shape[0]):
@@ -216,9 +204,10 @@ if __name__ == '__main__':
         print 'updt st:', kalman.state
 
         xout[n] = kalman.state
-        zout[n] = kalman.z_hat
+        zout[n,:9] = kalman.z_hat
+        zout[n,9:] = kalman.state[:3]
 
 
     ion()
     plot(xx, 'b+')
-    plot(zout, 'r-')
+    plot(zout[:,:9], 'r-')

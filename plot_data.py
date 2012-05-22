@@ -43,7 +43,7 @@ for c in [0,3,6]:
     plot(xx[sl[-1],0+c], xx[sl[-1],1+c],'o',color=dir_colors[c/3])
     plot(xx[sl,0+c], xx[sl,1+c], '-',color=dir_colors[c/3])
 axis('equal')
-axis([100,540,70,420])
+#axis([100,540,70,420])
 
 subplot(2,2,3)
 cla()
@@ -51,7 +51,7 @@ for c in [0,3,6]:
     plot(xx[sl[-1],0+c], xx[sl[-1],2+c],'o',color=dir_colors[c/3])
     plot(xx[sl,0+c], xx[sl,2+c], '-',color=dir_colors[c/3])
 axis('equal')
-axis([100,540,2700,2900])
+#axis([100,540,2700,2900])
 
 subplot(2,2,4)
 cla()
@@ -59,7 +59,7 @@ for c in [0,3,6]:
     plot(xx[sl[-1],1+c], xx[sl[-1],2+c],'o',color=dir_colors[c/3])
     plot(xx[sl,1+c], xx[sl,2+c], '-',color=dir_colors[c/3])
 axis('equal')
-axis([70,420,2700,2900])
+#axis([70,420,2700,2900])
 
 
 subplot(2,2,2)
@@ -73,4 +73,4 @@ for c in range(3):
     plot(sl[-1], xx[sl[-1],3*c+1], 'o',color=dir_colors[c])
     plot(sl[-1], xx[sl[-1],3*c+2], 'o',color=dir_colors[c])
 
-ylim(70, 540)
+#ylim(70, 540)
