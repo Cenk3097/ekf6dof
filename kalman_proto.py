@@ -56,20 +56,20 @@ class Kalman6DOF:
         #                   [2.21633152, -3.92949907,  61.57078696   ],
         #                   [3.93343197,   0.71211179, -11.49110769  ]]) ## tree_22may
         # self.pts = identity(3)
-        # self.pts = array([
-        #     [1.0,0,0],
-        #     [0,1.0,0],
-        #     [0,0.5,1.0]
-        #     ])
+        self.pts = array([
+            [1.0,0,0],
+            [0,1.0,0],
+            [0,0.5,1.0]
+            ])
 
 
 
         ## The system state, 3d position, 3d orientation (quaternion)
         ## + 3d velocity and angular velocity.
-        self.state = zeros(13+9)
-        self.previous_state = zeros(13+9)
+        self.state = zeros(13)
+        self.previous_state = zeros(13)
         #self.Cstate = zeros((13,13)) ## State covariance matrix
-        #self.Cstate = 0.1 * identity(13+9)
+        #self.Cstate = 0.1 * identity(13)
 
         ## Vector to store the predicted observation values,
         ## calculated for a given state. The values are the 9 point
@@ -81,12 +81,12 @@ class Kalman6DOF:
         ## transition depends on all the state variables, the
         ## observation depends only in the position and orientation,
         ## not the velocities.
-        self.Mtrans = identity(13+9)
-        self.Mobser = zeros([9,13+9])
+        self.Mtrans = identity(13)
+        self.Mobser = zeros([9,13])
 
         ## The transition jacobian regarding the acceleration. Used to
         ## compute the transition covariance.
-        self.Maccel = zeros([13+9, 6])
+        self.Maccel = zeros([13, 6])
 
         ## Variance of the acceleration. (Must be properly measured
         ## and given as a parameter in the initialization.)
@@ -129,8 +129,7 @@ class Kalman6DOF:
         R = matrix_from_quaternion(q)
 
         ## Predicted observation values
-        pts = self.state[13:13+9].reshape(3,3)
-        self.z_hat[:] = (dot(pts, R.T) + c).ravel()
+        self.z_hat[:] = (dot(self.pts, R.T) + c).ravel()
         
         ## Assemble observation jacobian matrix, H
         ## Derivatives on centroid position
@@ -150,12 +149,7 @@ class Kalman6DOF:
                         [ d, a,-b],
                         [-a, d,-c],
                         [ b, c, d]])
-        self.Mobser[:9,6:10] = dot(pts, drdq.T).reshape(9,4)
-
-        ## The coefficients of the observation matrix
-        self.Mobser[0:3,13+0:13+3] = R
-        self.Mobser[3:6,13+3:13+6] = R
-        self.Mobser[6:9,13+6:13+9] = R
+        self.Mobser[:9,6:10] = dot(self.pts, drdq.T).reshape(9,4)
 
     def update_from_observations(self, z):
 
@@ -168,7 +162,7 @@ class Kalman6DOF:
 
         ## Incorporate new observations into state estimation.
         self.state = self.state + dot(self.K, residue)
-        self.Cstate = dot(identity(13+9) - dot(self.K, self.Mobser),self.Cstate)
+        self.Cstate = dot(identity(13) - dot(self.K, self.Mobser),self.Cstate)
 
         ## Re-normalize the quaternion. Controversy ensues again.
         self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
@@ -193,20 +187,15 @@ if __name__ == '__main__':
     # kalman.state[0:3] = array([  328.07273667,   220.70310667,  1154.43393333]) # tree_22may
     kalman.state[0:3] = mean(xx[0].reshape(-1,3))
 
-    ## initial observation matrix coefficients
-    kalman.state[13:13+9] = identity(3).ravel()
     #kalman.state[13+7] = 0.5
     
-    kalman.Cstate = 100.0 * identity(13+9) ## Initial state covariance
-    kalman.Cstate[13:,13:] = 0.01 * identity(9) ## Initial H covariance
+    kalman.Cstate = 100.0 * identity(13) ## Initial state covariance
 
 
-    xout = zeros((xx.shape[0], 13+9))
+    xout = zeros((xx.shape[0], 13))
     zout = zeros((xx.shape[0], 12))
 
 
-    # pts_mu = 0.1 ## "learning rate" for the point cooridnates.
-    
     dt = .042
     for n in range(xx.shape[0]):
         print 70*'-'
@@ -217,8 +206,6 @@ if __name__ == '__main__':
         kalman.update_from_observations(xx[n])
         print 'measured:', xx[n]
         print 'updt st:', kalman.state
-
-        kalman.Cstate[13:,13:] = 0.01 * identity(9)
 
         ## Log predicted state and outputs
         xout[n] = kalman.state
