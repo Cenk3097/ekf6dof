@@ -61,9 +61,15 @@ class Kalman6DOF:
         # self.pts = array([[-50.37333333,  66.99333333,  20.6       ],
         #                   [ 69.62666667, -17.00666667, -24.4       ],
         #                   [-11.37333333, -40.00666667,  -2.4       ]]) ## tree3
-        self.pts = array([[14.74758755,  -9.02537984, -41.20558299 ],
-                          [2.21633152, -3.92949907,  61.57078696   ],
-                          [3.93343197,   0.71211179, -11.49110769  ]]) ## tree_22may
+        # self.pts = array([[14.74758755,  -9.02537984, -41.20558299 ],
+        #                   [2.21633152, -3.92949907,  61.57078696   ],
+        #                   [3.93343197,   0.71211179, -11.49110769  ]]) ## tree_22may
+        # self.pts = identity(3)
+        self.pts = array([
+            [1.0,0,0],
+            [0,1.0,0],
+            [0,0.5,1.0]
+            ])
 
 
 
@@ -97,10 +103,10 @@ class Kalman6DOF:
 
         ## Covariance matrix from measurements. (Also has to be better
         ## determined and given as a parameter at initialization.)
-        self.R = identity(9) * 1.0
-        self.R[2,2] = 1e6
-        self.R[5,5] = 1e6
-        self.R[8,8] = 1e6
+        self.Cobs = identity(9) * 10.0
+        # self.Cobs[2,2] = 1e6
+        # self.Cobs[5,5] = 1e6
+        # self.Cobs[8,8] = 1e6
 
 
     def predict_state(self, dt):
@@ -120,21 +126,19 @@ class Kalman6DOF:
         ##
         ## Calculate covariance to be added from an assumed uniform
         ## random acceleration.
-        QQt = self.accel_var * dot(self.Maccel,self.Maccel.T)
-        self.Cstate = dot(dot(self.Mtrans,self.Cstate), self.Mtrans.T) + QQt
+        Ctrans = self.accel_var * dot(self.Maccel,self.Maccel.T)
+        self.Cstate = dot(dot(self.Mtrans,self.Cstate), self.Mtrans.T) + Ctrans
 
 
     def predict_observations(self):
         ## Current estimated position and orientation
-        x = self.state[0:3]
+        c = self.state[0:3]
         q = self.state[6:10]
         ## Get rotation matrix from quaternion
         R = matrix_from_quaternion(q)
 
         ## Predicted observation values
-        self.z_hat[0:3] = self.state[0:3] + dot(self.pts[0], R.T)
-        self.z_hat[3:6] = self.state[0:3] + dot(self.pts[1], R.T)
-        self.z_hat[6:9] = self.state[0:3] + dot(self.pts[2], R.T)
+        self.z_hat[:] = (c + dot(self.pts, R.T)).ravel()
         
         ## Assemble observation jacobian matrix, H
         ## Derivatives on centroid position
@@ -160,7 +164,7 @@ class Kalman6DOF:
 
         ## Calculate residue from the measured and predicted observations.
         residue = z - self.z_hat
-        Cresidue = dot(dot(self.Mobser, self.Cstate), self.Mobser.T) + self.R
+        Cresidue = dot(dot(self.Mobser, self.Cstate), self.Mobser.T) + self.Cobs
 
         ## Kalman gain
         self.K = dot(dot(self.Cstate, self.Mobser.T), inv(Cresidue))
@@ -179,8 +183,8 @@ if __name__ == '__main__':
 
     xx = loadtxt(sys.argv[1])[:,:9]
 
-    for n in range(1,xx.shape[0]):
-        xx[n] = assoc(xx[n-1], xx[n])
+    # for n in range(1,xx.shape[0]):
+    #     xx[n] = assoc(xx[n-1], xx[n])
 
     
     kalman = Kalman6DOF()
@@ -189,13 +193,17 @@ if __name__ == '__main__':
 
     # kalman.state[0:3] = array([0.0,0.0,0.0]) ## simulation
     # kalman.state[0:3] = array([336.37333333,   227.00666667,  2801.4]) ## Real data tree3
-    kalman.state[0:3] = array([  328.07273667,   220.70310667,  1154.43393333]) # tree_22may
-
+    # kalman.state[0:3] = array([  328.07273667,   220.70310667,  1154.43393333]) # tree_22may
+    kalman.state[0:3] = mean(xx[0].reshape(-1,3))
+                             
     kalman.Cstate = 100.0 * identity(13) ## Initial state covariance
 
     xout = zeros((xx.shape[0], 13))
     zout = zeros((xx.shape[0], 12))
 
+
+    # pts_mu = 0.1 ## "learning rate" for the point cooridnates.
+    
     dt = .042
     for n in range(xx.shape[0]):
         print 70*'-'
@@ -207,11 +215,38 @@ if __name__ == '__main__':
         print 'measured:', xx[n]
         print 'updt st:', kalman.state
 
+        ## Log predicted state and outputs
         xout[n] = kalman.state
         zout[n,:9] = kalman.z_hat
         zout[n,9:] = kalman.state[:3]
 
 
+        # R = matrix_from_quaternion(kalman.state[6:10])
+
+        ## Crazy attempt to make an adaptive calculation of pts
+        # kalman.pts *= (1-pts_mu)
+        # kalman.pts += pts_mu * dot((xx[n].reshape(-1,3)
+        #                             - kalman.state[0:3]),
+        #                            R)
+        # kalman.pts[0,1:] =0
+
+        ## Attempt to apply the LMS algorithms to learn pts
+        # res = xx[n].reshape(-1,3) - kalman.z_hat.reshape(-1,3)
+        # upd = outer(R[0], res[0]) + \
+        #       outer(R[1], res[1]) + \
+        #       outer(R[2], res[2])
+        # upd /= norm(upd)
+        # kalman.pts += pts_mu * upd.T
+        # kalman.pts[0,1:] = 0
+        # kalman.pts[1,0] = 0
+
+
+        
+
+    # print 'pts', kalman.pts
+
     ion()
     plot(xx, 'b+')
     plot(zout[:,:9], 'r-')
+
+    print '--> mean observation prediction error level:', mean(log10(((xx-zout[:,:9])**2).sum(1)))

@@ -39,10 +39,16 @@ dt = 0.045
 #     [0,0,0]
 #     ])
 
+# pts = array([
+#     [1.0,0,0],
+#     [0,1.0,0],
+#     [-.5,-.5,0.0]
+#     ])
+
 pts = array([
     [1.0,0,0],
     [0,1.0,0],
-    [-.5,-.5,0.0]
+    [0,0.5,1.0]
     ])
 
 xx = empty([Nt, pts.ravel().shape[0]])
@@ -55,8 +61,11 @@ q[6] = 1.0
 F = identity(13)
 G = zeros((13,6))
 
+np.random.seed(1138)
 for n in xrange(Nt):
-    w_ = 0.4 * (rand(6)-0.5)
+    if not n/10 %2:
+        w_ = 1.0 * (rand(6)-0.5)
+    else: w_ = zeros(6)
     #w_ = array([0,0,0,0,0,1.0])/min(n+1,10)
     #w_ = 10.0*array([rand()-0.5,rand()-0.5,rand()-0.5,0,0,0])
     #w_ = 0.4*array([0,0,0,rand()-0.5,rand()-0.5,rand()-0.5])
