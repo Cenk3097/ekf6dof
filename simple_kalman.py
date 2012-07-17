@@ -99,6 +99,38 @@ class Kalman6DOF:
         self.Cstate = dot(dot(self.Mtrans,self.Cstate), self.Mtrans.T) + Ctrans
 
 
+    def predict_state_simulation(self, dt, v_accel):
+        ## Set the transition matrix from the current orientation
+        transition_matrix(self.Mtrans, self.state[6:10], dt)
+        acceleration_matrix(self.Maccel, self.state[6:10], dt)
+
+        ## Store current state
+        self.previous_state[:] = self.state
+        ## Calculate the new state using the transition matrix
+        self.state = dot(self.Mtrans, self.state)
+
+        ## Add acceleration contribution
+        self.state += dot(self.Maccel, v_accel)
+
+        ## Re-normalize the quaternion. Controversy ensues...
+        self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
+
+    def predict_state_simulation_correction(self, dt, v_accel):
+        ## Set the transition matrix from the current orientation
+        # transition_matrix(self.Mtrans, self.state[6:10], dt)
+        # acceleration_matrix(self.Maccel, self.state[6:10], dt)
+
+        ## Add acceleration contribution
+        self.state += dot(self.Maccel, v_accel)
+
+        ## Re-normalize the quaternion. Controversy ensues...
+        self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
+
+
+
+
+
+
     def predict_observations(self):
         ## Current estimated position and orientation
         c = self.state[0:3]
