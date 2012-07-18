@@ -80,6 +80,8 @@ class Kalman6DOF:
         # self.Cobs[5,5] = 1e6
         # self.Cobs[8,8] = 1e6
 
+        self.time = 0.0
+
 
     def predict_state(self, dt):
         ## Set the transition matrix from the current orientation
@@ -102,7 +104,7 @@ class Kalman6DOF:
         self.Cstate = dot(dot(self.Mtrans,self.Cstate), self.Mtrans.T) + Ctrans
 
 
-    def predict_state_simulation(self, dt, v_accel_fun):
+    def predict_state_simulation(self, dt, v_accel_fun, *v_accel_params):
         ## This method uses an external procedure to calculate the
         ## acceleration on time, that is integrated. We use the
         ## "half-step" method, where first the position is predicted
@@ -119,7 +121,7 @@ class Kalman6DOF:
         half_step = dot(self.Mtrans, self.state)
 
         ## Calculate acceleration from external function.
-        v_accel = v_accel_fun(half_step)
+        v_accel = v_accel_fun(half_step, *v_accel_params)
 
         ## Now calculate the full-step transition matrices.
         transition_matrix(self.Mtrans, self.state[6:10], dt)
@@ -136,7 +138,7 @@ class Kalman6DOF:
         self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
 
 
-
+        self.time += dt
 
 
 
