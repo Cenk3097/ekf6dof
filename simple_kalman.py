@@ -87,7 +87,7 @@ class Kalman6DOF:
         self.previous_state[:] = self.state
         ## Calculate the new state using the transition matrix
         self.state = dot(self.Mtrans, self.state)
-        ## Re-normalize the quaternion. Controversy ensues...
+        ## Re-normalize the quaternion. (Controversy ensues...)
         self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
 
         ########################################################################
@@ -99,8 +99,26 @@ class Kalman6DOF:
         self.Cstate = dot(dot(self.Mtrans,self.Cstate), self.Mtrans.T) + Ctrans
 
 
-    def predict_state_simulation(self, dt, v_accel):
-        ## Set the transition matrix from the current orientation
+    def predict_state_simulation(self, dt, v_accel_fun):
+        ## This method uses an external procedure to calculate the
+        ## acceleration on time, that is integrated. We use the
+        ## "half-step" method, where first the position is predicted
+        ## in half step in the future, an dthe acceleration is
+        ## calculated for that position. Then this acceleration valus
+        ## is used to predict the full-step.
+
+        ## Set the transition matrix from the current orientation in
+        ## order to calculate just the half-step prediction.
+        transition_matrix(self.Mtrans, self.state[6:10], dt*0.5)
+
+        ## Calculate the half-step state using the transition matrix
+        ## and assuming inertial motion.
+        half_step = dot(self.Mtrans, self.state)
+
+        ## Calculate acceleration from external function.
+        v_accel = v_accel_fun(half_step)
+
+        ## Now calculate the full-step transition matrices.
         transition_matrix(self.Mtrans, self.state[6:10], dt)
         acceleration_matrix(self.Maccel, self.state[6:10], dt)
 
@@ -108,23 +126,12 @@ class Kalman6DOF:
         self.previous_state[:] = self.state
         ## Calculate the new state using the transition matrix
         self.state = dot(self.Mtrans, self.state)
-
         ## Add acceleration contribution
         self.state += dot(self.Maccel, v_accel)
 
-        ## Re-normalize the quaternion. Controversy ensues...
+        ## Re-normalize the quaternion. (Controversy ensues...)
         self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
 
-    def predict_state_simulation_correction(self, dt, v_accel):
-        ## Set the transition matrix from the current orientation
-        # transition_matrix(self.Mtrans, self.state[6:10], dt)
-        # acceleration_matrix(self.Maccel, self.state[6:10], dt)
-
-        ## Add acceleration contribution
-        self.state += dot(self.Maccel, v_accel)
-
-        ## Re-normalize the quaternion. Controversy ensues...
-        self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
 
 
 
