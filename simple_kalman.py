@@ -45,7 +45,10 @@ class Kalman6DOF:
         ## The system state: 3d position, 3d velocity, 3d orientation
         ## (quaternion) + 3d angular velocity.
         self.state = zeros(13)
+        self.state[6] = 1.0  ## a "zero quaternion"
         self.previous_state = zeros(13)
+        self.previous_state[6] = 1.0
+
         #self.Cstate = zeros((13,13)) ## State covariance matrix
         #self.Cstate = 0.1 * identity(13)
 
