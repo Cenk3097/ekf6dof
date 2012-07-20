@@ -42,7 +42,7 @@ def cal_acc_control_rocket(x, tt):
 
 
 def quantize(xx):
-    xr = 100
+    xr = 1000
     vr = 2.5
     ar = 3.5
     wr = 3.5
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     actions = array([[-1, 0],
                      [ 0,-1],
-                     [ 0, 0],
+                     # [ 0, 0],
                      [ 0, 1],
                      [ 1, 0],
                      ])
