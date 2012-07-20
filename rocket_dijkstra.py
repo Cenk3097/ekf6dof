@@ -50,7 +50,7 @@ def heuristics(x):
 
 
 def quantize(xx):
-    xr = 1000
+    xr = 10
     vr = 2.5
     ar = 3.5
     wr = 3.5
@@ -89,21 +89,22 @@ if __name__ == '__main__':
     final_state[6] = -1.0
 
     tovisit_states = []
-    visited_states = set()
+    visited_states = {}
 
     heapq.heappush(tovisit_states,
                    (heuristics(initial_state),
-                    tuple(initial_state))
+                    tuple(initial_state), 
+                    [0,0])
                    )
 
 
     k=0
     while True:
-        hh, so = heapq.heappop(tovisit_states)
-        print(hh)
+        hh, so, aa = heapq.heappop(tovisit_states)
+        print(k, hh)
         so = array(so)
 
-        visited_states.add(tuple(so))
+        visited_states[quantize(so)]=aa
 
         for aa in actions:
             kk.state = so
@@ -112,11 +113,11 @@ if __name__ == '__main__':
             sd = kk.state
 
 
-            if tuple(sd) in visited_states:
+            if quantize(sd) in visited_states.keys():
                 continue
  
             heapq.heappush(tovisit_states,
                            (heuristics(sd),
-                            tuple(sd))
+                            tuple(sd),aa)
                            )
             k+=1

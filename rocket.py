@@ -7,8 +7,22 @@ from simple_kalman import *
 
 
 
+def quantize(xx):
+    ## Quantize the space state of the spaceship problem. There are
+    ## probably much better approaches out there.
+    xr = 10.0
+    vr = 2.5
+    ar = 3.5
+    wr = 3.5
+    Q = array([ xr, xr, xr,
+                vr, vr, vr,
+                ar,ar,ar,ar,
+                wr,wr,wr,])
+    # return tuple(np.array(np.round(xx*Q), dtype=int16))
+    return tuple(np.array(np.round(xx*Q), dtype=int16)[[0,2,3,5,6,8,11]])
 
-def cal_acc_control_rocket(x, time, tt):
+
+def cal_acc_control_rocket_old(x, time, tt):
     ## In this case we have a spaceship that is guided by three
     ## thrusters. We can control the roll and the pitch, not yaw, and
     ## we can also accelerate forward or backwards.
@@ -40,6 +54,41 @@ def cal_acc_control_rocket(x, time, tt):
 
 
 
+def cal_acc_control_rocket(x, policy):
+    ## In this case we have a spaceship that is guided by three
+    ## thrusters. We can control the roll and the pitch, not yaw, and
+    ## we can also accelerate forward or backwards.
+    
+    ## The target is to "park" the ship at the origin
+    ## The goal state is all zeros.
+    desired = zeros(13)
+    desired[6] = 1.0
+                        
+    ## Simply return the error. Suppose we can accelerate to any direction.
+    accel = zeros(6)
+
+    ## Calculate the "forward" direction of the ship.
+    R = matrix_from_quaternion(x[6:10])[2]
+
+    k1 = 0.0
+    k2 = 0.0
+
+    if quantize(x) in policy.keys():
+        c1,c2 = policy[quantize(x)]
+    else:
+        c1,c2 = [1,0]
+
+    k1 = c1*20.0
+    k2 = c2*10.0
+
+    accel[:3] = k1*R
+    accel[4] = k2
+
+    return accel
+
+
+
+
 
 
 
@@ -48,7 +97,7 @@ if __name__ == '__main__':
 
     kk = Kalman6DOF()
 
-    kk.state[0] = -10.0
+    kk.state[0] = 2.0
     kk.state[1] = 0.0
     kk.state[2] = 0.0
 
@@ -56,7 +105,7 @@ if __name__ == '__main__':
     kk.state[4] = 0.0
     kk.state[5] = 0.0
 
-    ww0 = 0.0
+    ww0 = pi/2
     kk.state[6] = cos(ww0)
     kk.state[8] = -sin(ww0)
 
@@ -68,36 +117,16 @@ if __name__ == '__main__':
     out = zeros((Nt+1,13))
 
     ## Table with the activation times
-
-    # trans_list = array([
-    #         [  0, 10, 1, 0.0],
-    #         [ 50, 56, 0,-1],
-    #         [100,106, 0, 1],
-    #         [110,130, 1, 0],
-    #         ])
-
-    trans_list = array([
-            [  0, 10, 1, 0.0],
-            [ 14, 30, 0,-1],
-            [ 30, 46, 0, 1],
-            [ 50, 70, 1, 0],
-
-            [ 74, 90, 0,-1],
-            [ 90,106, 0, 1],
-
-            [110,131, 1, 0],
-
-            [134,145, 0, 1],
-            [145,156, 0,-1],
-            [156,165,-1, 0],
-
-            ])
     
+
+    import pickle
+    policy = pickle.load(open('policy.p', 'rb'))
+
 
 
     out[0] = kk.state ## Store initial state
     for k in mgrid[:Nt]:
-        kk.predict_state_simulation(dt, cal_acc_control_rocket, k, trans_list)
+        kk.predict_state_simulation(dt, cal_acc_control_rocket, policy)
         out[k+1] = kk.state ## Store next state
 
     ## Array with time values
