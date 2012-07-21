@@ -13,10 +13,10 @@ from pylab import *
 
 
 def zero_accel(x):
-    # aa = zeros(6)
+    aa = zeros(6)
     # aa[1] = 1.0
-    # return aa
-    return random(6)-0.5
+    return aa
+    # return random(6)-0.5
 
 if __name__ == '__main__':
     set_printoptions(precision=3)
@@ -25,30 +25,38 @@ if __name__ == '__main__':
     sim = dynamics.Simulator()
 
     x = zeros(13)
-    x[3] = 1.0
+    x[3] = 0.0
     x[6] = 1.0
-    x[10] = 1.0
+    x[10] = 4.19
     
-    dt = 10.0
+    dt = 0.001
 
     y = zeros(13)
 
 
     Nt = 10000
-    out = zeros((Nt, 2))
-    print(x)
+    out = zeros((Nt+1, 13))
+    out[0] = x
+    #print(x)
     for tt in range(Nt):
 
         sim.simulation_step(y, x, dt, zero_accel)
-        print(y)
+        #print(y)
         x = y[:]
 
-        out[tt, :2] = x[3:5]
+        out[tt+1] = x
+
+
+    vtime = mgrid[:Nt+1] * dt
 
 
     ion()
 
-    plot(out[:,0], out[:,1], '-')
-
+    figure(1)
+    plot(out[:,6], out[:,7], '-+', lw=0.1, alpha=0.75)
     axis('equal')
+    grid()
+
+    figure(2)
+    plot(vtime, out[:,[6,7]], '-')
     grid()

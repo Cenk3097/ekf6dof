@@ -80,6 +80,7 @@ class Simulator:
 
         linear_motion(ous, ins, dt)
         acceleration_increment(ous, ins, dt, aa)
+        normalize_orientation(ous)
 
 
 
