@@ -1,4 +1,4 @@
-run_test: run_test.cc
-	g++ run_test.cc -o run_test `pkg-config --libs --cflags opencv`
+all: dynamics.so
 
-
+dynamics.so: dynamics_setup.py dynamics.pyx
+	python2.7 dynamics_setup.py build_ext --inplace --force
