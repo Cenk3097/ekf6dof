@@ -19,35 +19,64 @@ cdef linear_motion(double* ous, double* ins, double dt):
         ous[k] = ins[k]
     for k in range(10,13):
         ous[k] = ins[k]
-    cdef double qa
-    ## The first coefficient from the rotation quaterion.
-    #qa = 1
-    qa = sqrt(1 - dt * dt* (ins[10]*ins[10]+ins[11]*ins[11]+ins[12]*ins[12]))
+
+    cdef double qt[4]
+
+    ## Calcualte the quaternion of the rotatio by the given time. Each
+    ## parameters is calculated like a linear displacement.
+    qt[1] = dt * ins[10]
+    qt[2] = dt * ins[11]
+    qt[3] = dt * ins[12]
+    ## The first coefficient from the rotation quaternion.
+    qt[0] = sqrt(1 - (qt[1] * qt[1] + qt[2] * qt[2] + qt[3] * qt[3]))
 
     ## The current position and prientation, plus velocity-times-elapsed-time
     ous[0] = ins[0] + dt * ins[3]
     ous[1] = ins[1] + dt * ins[4]
     ous[2] = ins[2] + dt * ins[5]
-    ous[6] = qa * ins[6] + dt * (-ins[10] * ins[7] - ins[11] * ins[8] - ins[12] * ins[9])
-    ous[7] = qa * ins[7] + dt * ( ins[10] * ins[6] + ins[11] * ins[9] - ins[12] * ins[8])
-    ous[8] = qa * ins[8] + dt * (-ins[10] * ins[9] + ins[11] * ins[6] + ins[12] * ins[7])
-    ous[9] = qa * ins[9] + dt * ( ins[10] * ins[8] - ins[11] * ins[7] + ins[12] * ins[6])
+    ## http://en.wikipedia.org/wiki/Quaternion#Hamilton_product
+    ## Calculate new orientation using the "total quaternion".
+    # ous[6] = qa * ins[6] + dt * (-ins[10] * ins[7] - ins[11] * ins[8] - ins[12] * ins[9])
+    # ous[7] = qa * ins[7] + dt * ( ins[10] * ins[6] + ins[11] * ins[9] - ins[12] * ins[8])
+    # ous[8] = qa * ins[8] + dt * (-ins[10] * ins[9] + ins[11] * ins[6] + ins[12] * ins[7])
+    # ous[9] = qa * ins[9] + dt * ( ins[10] * ins[8] - ins[11] * ins[7] + ins[12] * ins[6])
+    ous[6] = qt[0] * ins[6] + -qt[1] * ins[7] - qt[2] * ins[8] - qt[3] * ins[9]
+    ous[7] = qt[0] * ins[7] +  qt[1] * ins[6] + qt[2] * ins[9] - qt[3] * ins[8]
+    ous[8] = qt[0] * ins[8] + -qt[1] * ins[9] + qt[2] * ins[6] + qt[3] * ins[7]
+    ous[9] = qt[0] * ins[9] +  qt[1] * ins[8] - qt[2] * ins[7] + qt[3] * ins[6]
 
 cdef acceleration_increment(double* ous, double* ins, double dt, double* accel):
     cdef double dt2_2 = 0.5*dt*dt
-    ous[0] += dt2_2 * accel[0]
-    ous[1] += dt2_2 * accel[1]
-    ous[2] += dt2_2 * accel[2]
-    ous[3] += dt * accel[0]
-    ous[4] += dt * accel[1]
-    ous[5] += dt * accel[2]
-    ous[6] += dt2_2 * (-ins[7] * accel[3] - ins[8] * accel[4] - ins[9] * accel[5])
-    ous[7] += dt2_2 * ( ins[6] * accel[3] - ins[9] * accel[4] + ins[8] * accel[5])
-    ous[8] += dt2_2 * ( ins[9] * accel[3] + ins[6] * accel[4] - ins[7] * accel[5])
-    ous[9] += dt2_2 * (-ins[8] * accel[3] + ins[7] * accel[4] + ins[6] * accel[5])
-    ous[10] += dt * accel[3]
-    ous[11] += dt * accel[4]
-    ous[12] += dt * accel[5]
+
+    ## Calculate translation.
+    ous[0] = ins[0] + dt*ins[3] + dt2_2 * accel[0]
+    ous[1] = ins[1] + dt*ins[4] + dt2_2 * accel[1]
+    ous[2] = ins[2] + dt*ins[5] + dt2_2 * accel[2]
+
+    ## Calculate velocity increments.
+    ous[3] = ins[3] + dt * accel[0]
+    ous[4] = ins[4] + dt * accel[1]
+    ous[5] = ins[5] + dt * accel[2]
+    ous[10] = ins[10] + dt * accel[3]
+    ous[11] = ins[11] + dt * accel[4]
+    ous[12] = ins[12] + dt * accel[5]
+
+    cdef double qt[4]
+
+    ## Calcualte the "total quaternion". Each parameters is calculated
+    ## like a linear displacement.
+    qt[1] = dt * ins[10] + dt2_2 * accel[3]
+    qt[2] = dt * ins[11] + dt2_2 * accel[4]
+    qt[3] = dt * ins[12] + dt2_2 * accel[5]
+    ## The first coefficient from the rotation quaternion.
+    qt[0] = sqrt(1 - (qt[1] * qt[1] + qt[2] * qt[2] + qt[3] * qt[3]))
+
+    ## Calculate new orientation using the "total quaternion".
+    ous[6] = qt[0] * ins[6] + -qt[1] * ins[7] - qt[2] * ins[8] - qt[3] * ins[9]
+    ous[7] = qt[0] * ins[7] +  qt[1] * ins[6] + qt[2] * ins[9] - qt[3] * ins[8]
+    ous[8] = qt[0] * ins[8] + -qt[1] * ins[9] + qt[2] * ins[6] + qt[3] * ins[7]
+    ous[9] = qt[0] * ins[9] +  qt[1] * ins[8] - qt[2] * ins[7] + qt[3] * ins[6]
+
 
 cdef normalize_orientation(double* ous):
     cdef double n = 0.0
