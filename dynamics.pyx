@@ -45,7 +45,7 @@ cdef linear_motion(double* ous, double* ins, double dt):
     ous[8] = qt[0] * ins[8] + -qt[1] * ins[9] + qt[2] * ins[6] + qt[3] * ins[7]
     ous[9] = qt[0] * ins[9] +  qt[1] * ins[8] - qt[2] * ins[7] + qt[3] * ins[6]
 
-cdef acceleration_increment(double* ous, double* ins, double dt, double* accel):
+cdef accelerated_motion(double* ous, double* ins, double dt, double* accel):
     cdef double dt2_2 = 0.5*dt*dt
 
     ## Calculate translation.
@@ -110,11 +110,10 @@ class Simulator:
 
         ## Calculate acceleration from external function.
         cdef np.ndarray accel = np.zeros([6], dtype=DTYPE2)
-        accel[:] = v_accel_fun(out_state, *v_accel_params)
         cdef double * aa = <double*>accel.data
+        accel[:] = v_accel_fun(out_state, *v_accel_params)[:]
 
-        linear_motion(ous, ins, dt)
-        acceleration_increment(ous, ins, dt, aa)
+        accelerated_motion(ous, ins, dt, aa)
 
 
 

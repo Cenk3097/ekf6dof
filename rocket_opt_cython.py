@@ -12,53 +12,52 @@ from pylab import *
 
 
 def zero_accel(x, tt):
+    return zeros(6)
+
+def coupled_scollators_accel(x):
     aa = zeros(6)
-    #aa[1] = 1.0
-    #aa[3] = 1e-6
+    k = 0.5
+    kc = 0.1 ## Coupling spring
 
-    # if tt == 4000:
-    #     aa[3] = 50.0
-
-    # if tt >= 2000 and tt < 3000:
-    #     aa[3] = 5e-2
-    # if tt >= 4000 and tt < 5000:
-    #     aa[3] = 5e-2
-    # if tt >= 6000 and tt < 7000:
-    #     aa[3] = 5e-2
-    # if tt >= 8000 and tt < 9000:
-    #     aa[3] = 5e-2
-
-    if tt >= 3000 and tt < 7000:
-        aa[3] = 5e-2
-
-
-    # aa = random(6)-0.5
-
+    aa[0] = kc * x[1] - (k+kc) * x[0]
+    aa[1] = kc * x[0] - (k+kc) * x[1]
     return aa
+
+def gravity_accel(x):
+    aa = zeros(6)
+    gmm = 100.0
+    dd = x[:2]
+    aa[:2] = - (gmm / norm(dd)**3) * dd
+    return aa
+
+
+
 
 
 if __name__ == '__main__':
     set_printoptions(precision=3)
 
-    
     sim = dynamics.Simulator()
 
-    x = zeros(13)
-    x[3] = 0.0
-    x[6] = 1.0
-    x[10] = sin(2*pi/20.0)
-    
-    dt = 0.01
+    dt = 1e-3
+    # T = 2*pi*dt ## Faster than that strange things happen.
+    # T = 100
 
+    x = zeros(13)
+    x[0] = 10.0
+    x[4] = 4.5
+    x[6] = 1.0
+    # x[10] = 2*pi/T
 
     y = zeros(13)
 
 
-    Nt = 10000
+    Nt = 100000
     out = zeros((Nt+1, 13))
     out[0] = x
     for tt in range(Nt):
-        sim.simulation_step(y, x, dt, zero_accel, tt)
+        # sim.simulation_step(y, x, dt, zero_accel, tt)
+        sim.simulation_step(y, x, dt, gravity_acceleration)
         x[:] = copy(y)
 
         out[tt+1] = x
@@ -69,23 +68,50 @@ if __name__ == '__main__':
 
     ion()
 
-    figure(1)
-    plot(out[:,6], out[:,7], '-', lw=1)
+    # figure(1)
+    # plot(out[:,6], out[:,7], '-', lw=1)
+    # axis('equal')
+    # grid()
+
+    # figure(2)
+    # title('Angular acceleration')
+    
+    # # plot(vtime, out[:,[6,7]], '-')
+    # plot(vtime, out[:,7], '-')
+    # plot(vtime, out[:,6], '-') 
+
+    # plot(vtime, sin(vtime*2*pi/T), 'r--')
+    # xlabel('Time')
+    # ylabel('Quaternion params')
+    # ylim(-1,1)
+    # grid()
+
+    # twinx()
+    # plot(vtime, out[:,10], 'g-')
+    # ylabel('Angular velocity')
+    # ylim(0,3.0)
+
+
+
+
+
+    figure(1, figsize=(6.4,8))
+    suptitle('Hyperbolic orbit')
+    subplot(2,1,1)
+    title('Track')
+    plot(out[:,0], out[:,1], '-', lw=1)
+    plot(0,0,'ks')
     axis('equal')
     grid()
 
-    figure(2)
-    title('Angular acceleration')
-    
-    # plot(vtime, out[:,[6,7]], '-')
-    plot(vtime, out[:,7], '-')
-    plot(vtime, out[:,6], '-') 
+    subplot(2,1,2)
+    title('Individual parameters')
+    plot(vtime, out[:,0], 'b-')
+    plot(vtime, out[:,1], 'b-') 
     xlabel('Time')
-    ylabel('Quaternion params')
-    ylim(-1,1)
-    grid()
-
+    ylabel('Position')
     twinx()
-    plot(vtime, out[:,10], 'g-')
-    ylabel('Angular velocity')
-    ylim(0,3.0)
+    plot(vtime, out[:,3], 'r-')
+    plot(vtime, out[:,4], 'r-') 
+    ylabel('Velocity')
+    grid()
