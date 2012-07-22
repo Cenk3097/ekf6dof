@@ -14,17 +14,24 @@ ctypedef np.float64_t DTYPE2_t
 
 cdef linear_motion(double* ous, double* ins, double dt):
     cdef int k
-    ## Copy state
-    for k in range(13):
+    ## Copy velocities
+    for k in range(3,6):
         ous[k] = ins[k]
-    ## Add velocity times elapsed time, position and orientation.
-    ous[0] += dt * ins[3]
-    ous[1] += dt * ins[4]
-    ous[2] += dt * ins[5]
-    ous[6] += dt * (-ins[7] * ins[10] - ins[8] * ins[11] - ins[9] * ins[12])
-    ous[7] += dt * ( ins[6] * ins[10] - ins[9] * ins[11] + ins[8] * ins[12])
-    ous[8] += dt * ( ins[9] * ins[10] + ins[6] * ins[11] - ins[7] * ins[12])
-    ous[9] += dt * (-ins[8] * ins[10] + ins[7] * ins[11] + ins[6] * ins[12])
+    for k in range(10,13):
+        ous[k] = ins[k]
+    cdef double qa
+    ## The first coefficient from the rotation quaterion.
+    #qa = 1
+    qa = sqrt(1 - dt * dt* (ins[10]*ins[10]+ins[11]*ins[11]+ins[12]*ins[12]))
+
+    ## The current position and prientation, plus velocity-times-elapsed-time
+    ous[0] = ins[0] + dt * ins[3]
+    ous[1] = ins[1] + dt * ins[4]
+    ous[2] = ins[2] + dt * ins[5]
+    ous[6] = qa * ins[6] + dt * (-ins[10] * ins[7] - ins[11] * ins[8] - ins[12] * ins[9])
+    ous[7] = qa * ins[7] + dt * ( ins[10] * ins[6] + ins[11] * ins[9] - ins[12] * ins[8])
+    ous[8] = qa * ins[8] + dt * (-ins[10] * ins[9] + ins[11] * ins[6] + ins[12] * ins[7])
+    ous[9] = qa * ins[9] + dt * ( ins[10] * ins[8] - ins[11] * ins[7] + ins[12] * ins[6])
 
 cdef acceleration_increment(double* ous, double* ins, double dt, double* accel):
     cdef double dt2_2 = 0.5*dt*dt
@@ -71,7 +78,6 @@ class Simulator:
 
         ## Calculate half-step by linear motion.
         linear_motion(ous, ins, 0.5*dt)
-        normalize_orientation(ous)
 
         ## Calculate acceleration from external function.
         cdef np.ndarray accel = np.zeros([6], dtype=DTYPE2)
@@ -80,7 +86,6 @@ class Simulator:
 
         linear_motion(ous, ins, dt)
         acceleration_increment(ous, ins, dt, aa)
-        normalize_orientation(ous)
 
 
 

@@ -11,7 +11,6 @@ from pylab import *
 
 
 
-
 def zero_accel(x):
     aa = zeros(6)
     # aa[1] = 1.0
@@ -27,22 +26,20 @@ if __name__ == '__main__':
     x = zeros(13)
     x[3] = 0.0
     x[6] = 1.0
-    x[10] = 4.19
+    x[10] = sin(2*pi/20000.0)
     
-    dt = 0.001
+    dt = 0.2
+
 
     y = zeros(13)
 
 
-    Nt = 10000
+    Nt = 100001
     out = zeros((Nt+1, 13))
     out[0] = x
-    #print(x)
     for tt in range(Nt):
-
         sim.simulation_step(y, x, dt, zero_accel)
-        #print(y)
-        x = y[:]
+        x[:] = copy(y)
 
         out[tt+1] = x
 
@@ -53,7 +50,7 @@ if __name__ == '__main__':
     ion()
 
     figure(1)
-    plot(out[:,6], out[:,7], '-+', lw=0.1, alpha=0.75)
+    plot(out[:,6], out[:,7], '-', lw=1)
     axis('equal')
     grid()
 
