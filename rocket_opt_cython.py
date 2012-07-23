@@ -14,7 +14,7 @@ from pylab import *
 def zero_accel(x, tt):
     return zeros(6)
 
-def coupled_scollators_accel(x):
+def coupled_oscillators_accel(x):
     aa = zeros(6)
     k = 0.5
     kc = 0.1 ## Coupling spring
@@ -30,7 +30,15 @@ def gravity_accel(x):
     aa[:2] = - (gmm / norm(dd)**3) * dd
     return aa
 
+def pid_controler(x):
+    
+    aa = zeros(6)
+    c1 = 4.0
+    c2 = 4.0
 
+    aa[:3] = -c1 * x[:3] - c2 * x[3:6]
+    return aa
+    
 
 
 
@@ -52,12 +60,14 @@ if __name__ == '__main__':
     y = zeros(13)
 
 
-    Nt = 100000
+    Nt = 10000
     out = zeros((Nt+1, 13))
     out[0] = x
     for tt in range(Nt):
         # sim.simulation_step(y, x, dt, zero_accel, tt)
-        sim.simulation_step(y, x, dt, gravity_acceleration)
+        # sim.simulation_step(y, x, dt, gravity_accel)
+        # sim.simulation_step(y, x, dt, coupled_oscillators_accel)
+        sim.simulation_step(y, x, dt, pid_controler)
         x[:] = copy(y)
 
         out[tt+1] = x
@@ -96,7 +106,7 @@ if __name__ == '__main__':
 
 
     figure(1, figsize=(6.4,8))
-    suptitle('Hyperbolic orbit')
+    suptitle('Critically-damped system')
     subplot(2,1,1)
     title('Track')
     plot(out[:,0], out[:,1], '-', lw=1)
@@ -110,8 +120,10 @@ if __name__ == '__main__':
     plot(vtime, out[:,1], 'b-') 
     xlabel('Time')
     ylabel('Position')
+    ylim(-10,10)
     twinx()
     plot(vtime, out[:,3], 'r-')
-    plot(vtime, out[:,4], 'r-') 
+    plot(vtime, out[:,4], 'r-')
+    ylim(-15,15)
     ylabel('Velocity')
     grid()
