@@ -96,7 +96,26 @@ class Simulator:
     def __init__(self):
         return
 
-    def simulation_step(self,
+    def simulation_step_accel(self,
+                        np.ndarray[DTYPE2_t, ndim=1, mode="c"] out_state not None,
+                        np.ndarray[DTYPE2_t, ndim=1, mode="c"] in_state not None,
+                        double dt,
+                        v_accel_fun, *v_accel_params):
+
+        cdef double * ous = <double*>out_state.data
+        cdef double * ins = <double*>in_state.data
+
+        ## Calculate half-step by linear motion.
+        linear_motion(ous, ins, 0.5*dt)
+
+        ## Calculate acceleration from external function.
+        cdef np.ndarray accel = np.zeros([6], dtype=DTYPE2)
+        cdef double * aa = <double*>accel.data
+        accel[:] = v_accel_fun(out_state, *v_accel_params)[:]
+
+        accelerated_motion(ous, ins, dt, aa)
+
+    def simulation_step_accel(self,
                         np.ndarray[DTYPE2_t, ndim=1, mode="c"] out_state not None,
                         np.ndarray[DTYPE2_t, ndim=1, mode="c"] in_state not None,
                         double dt,

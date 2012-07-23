@@ -11,35 +11,69 @@ from pylab import *
 
 
 
-def zero_accel(x, tt):
-    return zeros(6)
 
-def coupled_oscillators_accel(x):
-    aa = zeros(6)
-    k = 0.5
-    kc = 0.1 ## Coupling spring
+def rocket_controls(x, time, com):
+    ## In this case we have a spaceship that is guided by three
+    ## thrusters. We can control the roll and the pitch, not yaw, and
+    ## we can also accelerate forward or backwards.
 
-    aa[0] = kc * x[1] - (k+kc) * x[0]
-    aa[1] = kc * x[0] - (k+kc) * x[1]
-    return aa
+    ## The target is to "park" the ship at the origin
+    ## The goal state is all zeros.
+    desired = zeros(13)
+    desired[6] = 1.0
+                        
+    ## Simply return the error. Suppose we can accelerate to any direction.
+    accel = zeros(6)
 
-def gravity_accel(x):
-    aa = zeros(6)
-    gmm = 100.0
-    dd = x[:2]
-    aa[:2] = - (gmm / norm(dd)**3) * dd
-    return aa
+    ## Calculate the "forward" direction of the ship.
+    R = matrix_from_quaternion(x[6:10])[2]
 
-def pid_controler(x):
-    
-    aa = zeros(6)
-    c1 = 4.0
-    c2 = 4.0
+    if com == 1:
+        k1 = 20.0
+        k2 = 0.0
+    elif com == 2:
+        k1 = -20.0
+        k2 = 0.0
+    elif com == 3:
+        k1 = 0.0
+        k2 = 10.0
+    elif com == 4:
+        k1 = 0.0
+        k2 = -10.0
+    else:
+        k1 = 0.0
+        k2 = 0.0
 
-    aa[:3] = -c1 * x[:3] - c2 * x[3:6]
-    return aa
-    
+    accel[:3] = k1*R
+    accel[4] = k2
 
+    return accel
+
+
+
+
+
+def quantize(x, lowlim, parmrg):
+    xx = x[[0,2,3,5,6,8,11]]
+    xr = 1.0
+    vr = 1.0
+    ar = 3.0 * sign(xx[6])
+    wr = 1.0
+    Q = array([ xr, xr,
+                vr, vr,
+                ar, ar,
+                wr,])
+
+    qq = np.array(np.round(xx*Q), dtype=int16)
+
+    out = 0
+    for k in range(lowlim.shape[0]):
+        vv = qq[k] - lowlim[k]
+        if vv < 0 or vv > parmrg[k]:
+            raise ValueError
+        out *= parmrg[k]
+        out += vv
+    return out
 
 
 if __name__ == '__main__':
@@ -48,82 +82,29 @@ if __name__ == '__main__':
     sim = dynamics.Simulator()
 
     dt = 1e-3
-    # T = 2*pi*dt ## Faster than that strange things happen.
-    # T = 100
-
-    x = zeros(13)
-    x[0] = 10.0
-    x[4] = 4.5
-    x[6] = 1.0
-    # x[10] = 2*pi/T
-
-    y = zeros(13)
+    Nt=10000
 
 
-    Nt = 10000
-    out = zeros((Nt+1, 13))
-    out[0] = x
-    for tt in range(Nt):
-        # sim.simulation_step(y, x, dt, zero_accel, tt)
-        # sim.simulation_step(y, x, dt, gravity_accel)
-        # sim.simulation_step(y, x, dt, coupled_oscillators_accel)
-        sim.simulation_step(y, x, dt, pid_controler)
+    target = zeros(13)
+    target[6] = sqrt(.5)
+    target[6] = sqrt(.5)
+
+
+    out = zeros((Nt+1,13))
+    for k in range(Nt):
+
+        
+        sim.simulation_step(y, x, dt, rocket_controls, k, action)
         x[:] = copy(y)
 
-        out[tt+1] = x
+        out[k+1] = x
 
 
     vtime = mgrid[:Nt+1] * dt
 
 
     ion()
-
-    # figure(1)
-    # plot(out[:,6], out[:,7], '-', lw=1)
-    # axis('equal')
-    # grid()
-
-    # figure(2)
-    # title('Angular acceleration')
-    
-    # # plot(vtime, out[:,[6,7]], '-')
-    # plot(vtime, out[:,7], '-')
-    # plot(vtime, out[:,6], '-') 
-
-    # plot(vtime, sin(vtime*2*pi/T), 'r--')
-    # xlabel('Time')
-    # ylabel('Quaternion params')
-    # ylim(-1,1)
-    # grid()
-
-    # twinx()
-    # plot(vtime, out[:,10], 'g-')
-    # ylabel('Angular velocity')
-    # ylim(0,3.0)
-
-
-
-
-
-    figure(1, figsize=(6.4,8))
-    suptitle('Critically-damped system')
-    subplot(2,1,1)
-    title('Track')
-    plot(out[:,0], out[:,1], '-', lw=1)
-    plot(0,0,'ks')
+    plot(out[:,0], out[:,1], 'b-')
     axis('equal')
     grid()
-
-    subplot(2,1,2)
-    title('Individual parameters')
-    plot(vtime, out[:,0], 'b-')
-    plot(vtime, out[:,1], 'b-') 
-    xlabel('Time')
-    ylabel('Position')
-    ylim(-10,10)
-    twinx()
-    plot(vtime, out[:,3], 'r-')
-    plot(vtime, out[:,4], 'r-')
-    ylim(-15,15)
-    ylabel('Velocity')
-    grid()
+    
