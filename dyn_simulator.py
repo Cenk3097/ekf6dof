@@ -41,41 +41,11 @@ def gravity_accel(x):
 def pid_controller(x):    
     aa = zeros(6)
     c1 = 4.0
-    c2 = 4.0
+    c2 = 1.0
 
     aa[:3] = -c1 * x[:3] - c2 * x[3:6]
     return aa
     
-
-def rocket_controller(x, time, tt):
-    ## In this case we have a spaceship that is guided by three
-    ## thrusters. We can control the roll and the pitch, not yaw, and
-    ## we can also accelerate forward or backwards.
-
-    ## The target is to "park" the ship at the origin
-    ## The goal state is all zeros.
-    desired = zeros(13)
-    desired[6] = 1.0
-                        
-    ## Simply return the error. Suppose we can accelerate to any direction.
-    accel = zeros(6)
-
-    ## Calculate the "forward" direction of the ship.
-    R = matrix_from_quaternion(x[6:10])[2]
-
-    k1 = 0.0
-    k2 = 0.0
-
-    for t1,t2,c1,c2 in tt:
-        if time >= t1 and time < t2:
-            k1 = c1*20.0
-            k2 = c2*10.0
-
-    accel[:3] = k1*R
-    accel[4] = k2
-
-    return accel
-
 
 
 if __name__ == '__main__':
@@ -89,7 +59,7 @@ if __name__ == '__main__':
 
     x = zeros(13)
     x[0] = 10.0
-    x[4] = 4.5
+    x[5] = 4.5
     x[6] = 1.0
     # x[10] = 2*pi/T
 
@@ -111,8 +81,7 @@ if __name__ == '__main__':
         # sim.simulation_step(y, x, dt, zero_accel, tt)
         # sim.simulation_step(y, x, dt, gravity_accel)
         # sim.simulation_step(y, x, dt, coupled_oscillators_accel)
-        # sim.simulation_step(y, x, dt, pid_controller)
-        sim.simulation_step(y, x, dt, rocket_controller, tt, tab)
+        sim.simulation_step(y, x, dt, pid_controller)
         x[:] = copy(y)
 
         out[tt+1] = x
@@ -181,20 +150,9 @@ if __name__ == '__main__':
     plot(out[:,0], out[:,2], '-', ms=7,mew=1.2, lw=1)
     axis('equal')
 
-
-    ## Plot the ship reference frame at a few points
-    ss = -0.5
-    for k in mgrid[:Nt+1:10]:
-        R = matrix_from_quaternion(out[k,6:10])
-        # plot([out[k,0],out[k,0]+ss*R[0,0]], [out[k,2],out[k,2]+ss*R[0,2]], 'k-' )
-        plot([out[k,0],out[k,0]+ss*R[2,0]], [out[k,2],out[k,2]+ss*R[2,2]], 'k-' )
-        plot(out[k,0], out[k,2], 'k.' )
-
-    grid()
-
     # axis([-12,2,-1,5])
-    xlim(-12,2)
-    ylim(-1,5)
+    # xlim(-12,2)
+    # ylim(-1,5)
 
 
     xlabel('x position')
@@ -210,11 +168,11 @@ if __name__ == '__main__':
 
     xlabel('Time')
     ylabel('Position and velocity')
-    l1=plot(tt,out[:,0], 'b-')[0]
-    plot(tt,out[:,2], 'b-')
+    l1=plot(vtime,out[:,0], 'b-')[0]
+    plot(vtime,out[:,2], 'b-')
 
-    l2=plot(tt,out[:,3], 'r-')[0]
-    plot(tt,out[:,5], 'r-')
+    l2=plot(vtime,out[:,3], 'r-')[0]
+    plot(vtime,out[:,5], 'r-')
 
     legend([l1,l2], ['Position','Velocity'], loc='upper left', ncol=1 )
 
