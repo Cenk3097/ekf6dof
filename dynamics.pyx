@@ -120,5 +120,21 @@ class Simulator:
 
 
 
-cdef extern double sqrt(double)
 
+
+
+
+
+class Quantizer:
+
+    def __init__(self, min_values, max_values, quantization_coefficients):
+        def np.ndarray accel = np.zeros([6], dtype=DTYPE2)
+
+
+
+
+
+
+
+
+cdef extern double sqrt(double)
