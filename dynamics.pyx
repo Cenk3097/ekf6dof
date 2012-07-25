@@ -127,7 +127,7 @@ class Simulator:
 
 class Quantizer:
 
-    def __init__(self, min_values, max_values, quantization_coefficients):
+    def __init__(self, Vshift, Vresolution, Vrange):
         cdef np.ndarray policy = np.zeros([6], dtype=DTYPE2)
 
 
