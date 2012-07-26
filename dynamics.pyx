@@ -128,9 +128,20 @@ class Simulator:
 class Quantizer:
 
     def __init__(self, Vshift, Vresolution, Vrange):
-        cdef np.ndarray policy = np.zeros([6], dtype=DTYPE2)
+
+        assert Vshift.shape == Vresolution.shape 
+        assert Vshift.shape == Vrange.shape
+        
+        self.shift = Vshift
+        self.resolution = Vresolution
+        self.range = Vrange
+
+        cdef np.ndarray policy = np.zeros(Vrange, dtype=DTYPE2)
 
 
+    def get(self, x):
+        xx = tuple((x - Vshift) * self.resolution)
+        return self.policy[xx]
 
 
 
