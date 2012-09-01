@@ -83,6 +83,30 @@ class Kalman6DOF:
         self.time = 0.0
 
 
+
+
+        ## Point coordinates in the body reference frame
+
+        # self.pts = array([
+        #     [1.0,0,0],
+        #     [0,1.0,0],
+        #     [-.5,-.5,0.0]
+        #     ]) ## simulation
+        # self.pts = array([[-50.37333333,  66.99333333,  20.6       ],
+        #                   [ 69.62666667, -17.00666667, -24.4       ],
+        #                   [-11.37333333, -40.00666667,  -2.4       ]]) ## tree3
+        # self.pts = array([[14.74758755,  -9.02537984, -41.20558299 ],
+        #                   [2.21633152, -3.92949907,  61.57078696   ],
+        #                   [3.93343197,   0.71211179, -11.49110769  ]]) ## tree_22may
+        # self.pts = identity(3)
+        self.pts = array([
+            [1.0,0,0],
+            [0,1.0,0],
+            [0,0.5,1.0]
+            ])
+
+
+
     def predict_state(self, dt):
         ## Set the transition matrix from the current orientation
         transition_matrix(self.Mtrans, self.state[6:10], dt)
@@ -196,12 +220,11 @@ if __name__ == '__main__':
 
     xx = loadtxt(sys.argv[1])[:,:9]
 
-    # for n in range(1,xx.shape[0]):
-    #     xx[n] = assoc(xx[n-1], xx[n])
+    for n in range(1,xx.shape[0]):
+        xx[n] = assoc(xx[n-1], xx[n])
 
-    
+
     kalman = Kalman6DOF()
-
     kalman.state[6] = 1.0 ## "0" Quaternion
 
     # kalman.state[0:3] = array([0.0,0.0,0.0]) ## simulation

@@ -143,6 +143,10 @@ class Quantizer:
         xx = tuple((x - Vshift) * self.resolution)
         return self.policy[xx]
 
+    def set(self, x, v):
+        xx = tuple((x - Vshift) * self.resolution)
+        self.policy[xx] = v
+
 
 
 
