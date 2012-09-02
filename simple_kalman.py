@@ -10,7 +10,9 @@ arrj = array([[0,1,2],
 def assoc(aa, bb):
     a = aa.reshape(-1,3)
     b = bb.reshape(-1,3)
-    return b[arrj[argmin([((a[:,:2]-b[cc,:2])**2).sum() for cc in arrj])],:].ravel()
+    ## New indices
+    ii = arrj[argmin([((a[:,:2]-b[cc,:2])**2).sum() for cc in arrj])]
+    return b[ii,:].ravel()
 
 
 def matrix_from_quaternion(q):
@@ -69,41 +71,22 @@ class Kalman6DOF:
         ## compute the transition covariance.
         self.Maccel = zeros([13, 6])
 
-        ## Variance of the acceleration. (Must be properly measured
+        ## Variance of the acceleration. (Should be properly measured
         ## and given as a parameter in the initialization.)
         self.Caccel = 0.1
+        # self.Caccel = 0.01
 
         ## Covariance matrix from measurements. (Also has to be better
         ## determined and given as a parameter at initialization.)
-        self.Cobs = identity(9) * 1.0
+        self.Cobs = identity(9) * 3e-3
+
+        # self.Cobs = identity(9) * 0.1
+
         # self.Cobs[2,2] = 1e6
         # self.Cobs[5,5] = 1e6
         # self.Cobs[8,8] = 1e6
 
         self.time = 0.0
-
-
-
-
-        ## Point coordinates in the body reference frame
-
-        # self.pts = array([
-        #     [1.0,0,0],
-        #     [0,1.0,0],
-        #     [-.5,-.5,0.0]
-        #     ]) ## simulation
-        # self.pts = array([[-50.37333333,  66.99333333,  20.6       ],
-        #                   [ 69.62666667, -17.00666667, -24.4       ],
-        #                   [-11.37333333, -40.00666667,  -2.4       ]]) ## tree3
-        # self.pts = array([[14.74758755,  -9.02537984, -41.20558299 ],
-        #                   [2.21633152, -3.92949907,  61.57078696   ],
-        #                   [3.93343197,   0.71211179, -11.49110769  ]]) ## tree_22may
-        # self.pts = identity(3)
-        self.pts = array([
-            [1.0,0,0],
-            [0,1.0,0],
-            [0,0.5,1.0]
-            ])
 
 
 
@@ -220,42 +203,90 @@ if __name__ == '__main__':
 
     xx = loadtxt(sys.argv[1])[:,:9]
 
+    xx[:, [0,3,6]] -= 320
+    xx[:, [1,4,7]] -= 240
+    xx[:, [0,1,3,4,6,7]] *= 1157.0/580.0
+
+
     for n in range(1,xx.shape[0]):
-        xx[n] = assoc(xx[n-1], xx[n])
+       xx[n] = assoc(xx[n-1], xx[n])
 
 
     kalman = Kalman6DOF()
     kalman.state[6] = 1.0 ## "0" Quaternion
 
-    # kalman.state[0:3] = array([0.0,0.0,0.0]) ## simulation
-    # kalman.state[0:3] = array([336.37333333,   227.00666667,  2801.4]) ## Real data tree3
-    # kalman.state[0:3] = array([  328.07273667,   220.70310667,  1154.43393333]) # tree_22may
+
+    kalman.pts = \
+        array([[ 79.23584838,  58.55128818, -43.88465773],
+               [-28.53663772, -99.4676606 ,  90.4078352 ],
+               [-49.32580004,  38.82926386, -41.75416534]])
+
+        # "Fitting" to the frist period
+        # array([[ 79.23584838,  58.55128818, -43.88465773],
+        #        [-28.53663772, -99.4676606 ,  90.4078352 ],
+        #        [-49.32580004,  38.82926386, -41.75416534]])
+        # array([[ 79.2384991 ,  58.57048068, -43.86812725],
+        #        [-28.53136383, -99.44582314,  90.42602827],
+        #        [-49.32450121,  38.8516144 , -41.73621901]])
+
+        # first two periods
+        # array([[  71.40769031,   45.05383917,  -32.16122414],
+        #        [ -16.79256927, -101.14733083,   93.54881313],
+        #        [ -53.22244106,   54.13339912,  -56.51138144]])
+
+        ## First estimate, I forgot how I got it!
+        # array([[ 78.49181092,  58.59872529, -45.32      ],
+        #        [-28.5107408 , -97.26114368,  87.48      ],
+        #        [-49.98107011,  38.66241839, -42.16      ]])
+
+        
+
     kalman.state[0:3] = mean(xx[0].reshape(-1,3))
 
-    #kalman.state[13+7] = 0.5
-    
     kalman.Cstate = 100.0 * identity(13) ## Initial state covariance
 
 
     xout = zeros((xx.shape[0], 13))
     zout = zeros((xx.shape[0], 12))
 
+    eout = zeros(xx.shape[0])
+    
+    # mout = zeros((350,9))
 
     dt = .042
     for n in range(xx.shape[0]):
-        print 70*'-'
+        new_data = assoc(kalman.z_hat, xx[n])
+
+        
+        
+        # new_data = assoc(kalman.z_hat, xx[n])
+
+        # print 70*'-'
         kalman.predict_state(dt)
-        print 'pred st: ', kalman.state
+        # print 'pred st: ', kalman.state
         kalman.predict_observations()
-        print 'pred obs:', kalman.z_hat
-        kalman.update_from_observations(xx[n])
-        print 'measured:', xx[n]
-        print 'updt st:', kalman.state
+        # print 'pred obs:', kalman.z_hat
+        # print 'measured:', new_data
+        merr = norm(kalman.z_hat - new_data)
+        eout[n] = merr
+        # print 'measurement error:', merr
+
+        kalman.update_from_observations(new_data)
+        # print 'updt st:', kalman.state
 
         ## Log predicted state and outputs
         xout[n] = kalman.state
         zout[n,:9] = kalman.z_hat
         zout[n,9:12] = kalman.state[:3]
+
+        # if n in range(450,800):
+        #     kalman.predict_observations()
+        #     c = kalman.state[0:3]
+        #     q = kalman.state[6:10]
+        #     R = matrix_from_quaternion(q)
+        #     mm = new_data.reshape(3,3)
+        #     mm = dot(mm - c , R)
+        #     mout[n-450] = mm.ravel()
 
 
 
@@ -264,3 +295,15 @@ if __name__ == '__main__':
     plot(zout[:,:9], 'r-')
 
     print '--> mean observation prediction error level:', mean(log10(((xx-zout[:,:9])**2).sum(1)))
+
+    # figure(4)
+    # plot(mout[:,0],mout[:,1], 'r,')
+    # plot(mout[:,3],mout[:,4], 'g,')
+    # plot(mout[:,6],mout[:,7], 'b,')
+
+    # plot(kalman.pts[0,0],kalman.pts[0,1], 'r.')
+    # plot(kalman.pts[1,0],kalman.pts[1,1], 'g.')
+    # plot(kalman.pts[2,0],kalman.pts[2,1], 'b.')
+    # axis('equal')
+    # grid()
+
