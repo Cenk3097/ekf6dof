@@ -73,12 +73,12 @@ class Kalman6DOF:
 
         ## Variance of the acceleration. (Should be properly measured
         ## and given as a parameter in the initialization.)
-        self.Caccel = 0.1
-        # self.Caccel = 0.01
+        # self.Caccel = 0.1
+        self.Caccel = 100.0
 
         ## Covariance matrix from measurements. (Also has to be better
         ## determined and given as a parameter at initialization.)
-        self.Cobs = identity(9) * 3e-3
+        self.Cobs = identity(9) * 1.0
 
         # self.Cobs = identity(9) * 0.1
 
@@ -203,10 +203,13 @@ if __name__ == '__main__':
 
     xx = loadtxt(sys.argv[1])[:,:9]
 
+    xx = xx[1100:1600]
+
     xx[:, [0,3,6]] -= 320
     xx[:, [1,4,7]] -= 240
     xx[:, [0,1,3,4,6,7]] *= 1157.0/580.0
 
+    
 
     for n in range(1,xx.shape[0]):
        xx[n] = assoc(xx[n-1], xx[n])
@@ -240,6 +243,8 @@ if __name__ == '__main__':
         #        [-49.98107011,  38.66241839, -42.16      ]])
 
         
+    kalman.pts = kalman.pts[arrj[5]]
+
 
     kalman.state[0:3] = mean(xx[0].reshape(-1,3))
 
@@ -256,8 +261,6 @@ if __name__ == '__main__':
     dt = .042
     for n in range(xx.shape[0]):
         new_data = assoc(kalman.z_hat, xx[n])
-
-        
         
         # new_data = assoc(kalman.z_hat, xx[n])
 
@@ -279,31 +282,17 @@ if __name__ == '__main__':
         zout[n,:9] = kalman.z_hat
         zout[n,9:12] = kalman.state[:3]
 
-        # if n in range(450,800):
-        #     kalman.predict_observations()
-        #     c = kalman.state[0:3]
-        #     q = kalman.state[6:10]
-        #     R = matrix_from_quaternion(q)
-        #     mm = new_data.reshape(3,3)
-        #     mm = dot(mm - c , R)
-        #     mout[n-450] = mm.ravel()
 
-
-
-    ion()
-    plot(xx, 'b+')
-    plot(zout[:,:9], 'r-')
 
     print '--> mean observation prediction error level:', mean(log10(((xx-zout[:,:9])**2).sum(1)))
 
-    # figure(4)
-    # plot(mout[:,0],mout[:,1], 'r,')
-    # plot(mout[:,3],mout[:,4], 'g,')
-    # plot(mout[:,6],mout[:,7], 'b,')
+    ion()
 
-    # plot(kalman.pts[0,0],kalman.pts[0,1], 'r.')
-    # plot(kalman.pts[1,0],kalman.pts[1,1], 'g.')
-    # plot(kalman.pts[2,0],kalman.pts[2,1], 'b.')
-    # axis('equal')
-    # grid()
+    figure(1)
+    plot(xx, '+')
+    plot(zout[:,:9], '-')
+
+    figure(2)
+    plot(eout)
+
 
