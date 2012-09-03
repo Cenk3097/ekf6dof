@@ -209,47 +209,23 @@ if __name__ == '__main__':
     xx[:, [1,4,7]] -= 240
     xx[:, [0,1,3,4,6,7]] *= 1157.0/580.0
 
-    
-
     for n in range(1,xx.shape[0]):
        xx[n] = assoc(xx[n-1], xx[n])
 
-
     kalman = Kalman6DOF()
     kalman.state[6] = 1.0 ## "0" Quaternion
-
 
     kalman.pts = \
         array([[ 79.23584838,  58.55128818, -43.88465773],
                [-28.53663772, -99.4676606 ,  90.4078352 ],
                [-49.32580004,  38.82926386, -41.75416534]])
 
-        # "Fitting" to the frist period
-        # array([[ 79.23584838,  58.55128818, -43.88465773],
-        #        [-28.53663772, -99.4676606 ,  90.4078352 ],
-        #        [-49.32580004,  38.82926386, -41.75416534]])
-        # array([[ 79.2384991 ,  58.57048068, -43.86812725],
-        #        [-28.53136383, -99.44582314,  90.42602827],
-        #        [-49.32450121,  38.8516144 , -41.73621901]])
-
-        # first two periods
-        # array([[  71.40769031,   45.05383917,  -32.16122414],
-        #        [ -16.79256927, -101.14733083,   93.54881313],
-        #        [ -53.22244106,   54.13339912,  -56.51138144]])
-
-        ## First estimate, I forgot how I got it!
-        # array([[ 78.49181092,  58.59872529, -45.32      ],
-        #        [-28.5107408 , -97.26114368,  87.48      ],
-        #        [-49.98107011,  38.66241839, -42.16      ]])
-
-        
     kalman.pts = kalman.pts[arrj[5]]
 
 
     kalman.state[0:3] = mean(xx[0].reshape(-1,3))
 
     kalman.Cstate = 100.0 * identity(13) ## Initial state covariance
-
 
     xout = zeros((xx.shape[0], 13))
     zout = zeros((xx.shape[0], 12))
@@ -258,28 +234,26 @@ if __name__ == '__main__':
     
     # mout = zeros((350,9))
 
+
+    mm = kalman.pts - kalman.pts.mean(0)
+
     dt = .042
     for n in range(xx.shape[0]):
-        new_data = xx[n]
-        # new_data = assoc(kalman.z_hat, xx[n])
+        dd = xx[n].reshape(3,3)
+        dd -= dd.mean(0)        
 
-        # print 70*'-'
-        kalman.predict_state(dt)
-        # print 'pred st: ', kalman.state
-        kalman.predict_observations()
-        # print 'pred obs:', kalman.z_hat
-        # print 'measured:', new_data
-        merr = norm(kalman.z_hat - new_data)
-        eout[n] = merr
-        # print 'measurement error:', merr
+        hh = zeros((3,3))
+        for k in range(3):
+            hh += dot(dd[k:k+1,:].T, mm[k:k+1,:])
+        hh = hh / 3
+        uu,ss,vv = svd(hh)
+        R = dot(uu,vv.T)
+        print R
 
-        kalman.update_from_observations(new_data)
-        # print 'updt st:', kalman.state
+        print mm
+        print dot(dd,R.T)
+        print 
 
-        ## Log predicted state and outputs
-        xout[n] = kalman.state
-        zout[n,:9] = kalman.z_hat
-        zout[n,9:12] = kalman.state[:3]
 
 
 
