@@ -201,12 +201,14 @@ class Kalman6DOF:
 
 if __name__ == '__main__':
 
+    ## Read input data, the points extracted using kinect.
     xx = loadtxt(sys.argv[1])[:,:9]
-
     xx = xx[1100:1600]
 
+    ## Transform from Kinect data to 3D using approximate camera model.
     xx[:, [0,3,6]] -= 320
     xx[:, [1,4,7]] -= 240
+    ## Multiply x and y coordinated by mean distance divided by approximate focal distance.
     xx[:, [0,1,3,4,6,7]] *= 1157.0/580.0
 
     for n in range(1,xx.shape[0]):
@@ -239,17 +241,19 @@ if __name__ == '__main__':
 
     dt = .042
     for n in range(xx.shape[0]):
+        ## Read measured points and subtract their mean.
         dd = xx[n].reshape(3,3)
         dd -= dd.mean(0)        
 
+        
         hh = zeros((3,3))
         for k in range(3):
             hh += dot(dd[k:k+1,:].T, mm[k:k+1,:])
         hh = hh / 3
         uu,ss,vv = svd(hh)
         R = dot(uu,vv.T)
-        print R
 
+        print R
         print mm
         print dot(dd,R.T)
         print 

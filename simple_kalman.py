@@ -88,8 +88,6 @@ class Kalman6DOF:
 
         self.time = 0.0
 
-
-
     def predict_state(self, dt):
         ## Set the transition matrix from the current orientation
         transition_matrix(self.Mtrans, self.state[6:10], dt)
@@ -105,7 +103,7 @@ class Kalman6DOF:
         ########################################################################
         ## Update covariance of state estimate
         ##
-        ## Calculate covariance to be added from an assumed uniform
+        ## Calculate covariance to be added from an assumed normal
         ## random acceleration.
         Ctrans = self.Caccel * dot(self.Maccel,self.Maccel.T)
         self.Cstate = dot(dot(self.Mtrans,self.Cstate), self.Mtrans.T) + Ctrans
@@ -115,8 +113,8 @@ class Kalman6DOF:
         ## This method uses an external procedure to calculate the
         ## acceleration on time, that is integrated. We use the
         ## "half-step" method, where first the position is predicted
-        ## in half step in the future, an dthe acceleration is
-        ## calculated for that position. Then this acceleration valus
+        ## in half step in the future, and the acceleration is
+        ## calculated for that position. Then this acceleration value
         ## is used to predict the full-step.
 
         ## Set the transition matrix from the current orientation in
@@ -144,11 +142,7 @@ class Kalman6DOF:
         ## Re-normalize the quaternion. (Controversy ensues...)
         self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
 
-
         self.time += dt
-
-
-
 
     def predict_observations(self):
         ## Current estimated position and orientation
@@ -181,7 +175,6 @@ class Kalman6DOF:
         self.Mobser[:9,6:10] = dot(self.pts, drdq.T).reshape(9,4)
 
     def update_from_observations(self, z):
-
         ## Calculate residue from the measured and predicted observations.
         residue = z - self.z_hat
         Cresidue = dot(dot(self.Mobser, self.Cstate), self.Mobser.T) + self.Cobs
@@ -197,8 +190,6 @@ class Kalman6DOF:
         self.state[6:10] = self.state[6:10] / norm(self.state[6:10])
 
 
-
-
 if __name__ == '__main__':
 
     xx = loadtxt(sys.argv[1])[:,:9]
@@ -209,15 +200,11 @@ if __name__ == '__main__':
     xx[:, [1,4,7]] -= 240
     xx[:, [0,1,3,4,6,7]] *= 1157.0/580.0
 
-    
-
     for n in range(1,xx.shape[0]):
        xx[n] = assoc(xx[n-1], xx[n])
 
-
     kalman = Kalman6DOF()
     kalman.state[6] = 1.0 ## "0" Quaternion
-
 
     kalman.pts = \
         array([[ 79.23584838,  58.55128818, -43.88465773],
@@ -245,11 +232,9 @@ if __name__ == '__main__':
         
     kalman.pts = kalman.pts[arrj[5]]
 
-
     kalman.state[0:3] = mean(xx[0].reshape(-1,3))
 
     kalman.Cstate = 100.0 * identity(13) ## Initial state covariance
-
 
     xout = zeros((xx.shape[0], 13))
     zout = zeros((xx.shape[0], 12))
@@ -280,8 +265,6 @@ if __name__ == '__main__':
         xout[n] = kalman.state
         zout[n,:9] = kalman.z_hat
         zout[n,9:12] = kalman.state[:3]
-
-
 
     print '--> mean observation prediction error level:', mean(log10(((xx-zout[:,:9])**2).sum(1)))
 
